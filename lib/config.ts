@@ -13,6 +13,8 @@ export interface MailConfig {
     defaultLimit: number;
     maxLimit: number;
     priorityMailboxes: string[];
+    messagesPerSearch: number;
+    contentPreviewLength: number;
   };
   performance: {
     jxaTimeout: number;
@@ -51,7 +53,9 @@ export function loadConfig(): MailConfig {
       defaultLimit: parseEnvNumber(process.env.MAIL_SEARCH_DEFAULT_LIMIT, 20),
       maxLimit: parseEnvNumber(process.env.MAIL_SEARCH_MAX_LIMIT, 100),
       priorityMailboxes: parseEnvArray(process.env.MAIL_PRIORITY_MAILBOXES) ||
-        ['INBOX', 'Sent Messages', 'Sent', 'Drafts']
+        ['INBOX', 'Sent Messages', 'Sent', 'Drafts'],
+      messagesPerSearch: parseEnvNumber(process.env.MAIL_MESSAGES_PER_SEARCH, 50),
+      contentPreviewLength: parseEnvNumber(process.env.MAIL_CONTENT_PREVIEW_LENGTH, 200)
     },
     performance: {
       jxaTimeout: parseEnvNumber(process.env.MAIL_JXA_TIMEOUT, 30000),

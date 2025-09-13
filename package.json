@@ -6,9 +6,9 @@
   "main": "dist/index.js",
   "module": "index.ts",
   "scripts": {
-    "dev": "node --loader tsx index.ts",
+    "dev": "node --import tsx index.ts",
     "build": "tsc && esbuild index.ts --bundle --platform=node --target=node16 --format=esm --outfile=dist/index.js --minify --external:@modelcontextprotocol/sdk --external:zod",
-    "test": "node --loader tsx test/test-mail.ts",
+    "test": "node --import tsx test/test-mail.ts",
     "pack": "mcpb pack"
   },
   "dependencies": {

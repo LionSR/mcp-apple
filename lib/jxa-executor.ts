@@ -29,7 +29,7 @@ export async function runJXA<T = any>(
 
     function run() {
       try {
-        const result = (function() {
+        var result = (function() {
           ${code}
         })();
 

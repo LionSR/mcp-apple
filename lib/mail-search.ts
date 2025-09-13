@@ -4,60 +4,72 @@
 
 import { runJXA, escapeJXAString } from './jxa-executor.js';
 import { EmailMessage } from './types.js';
+import { config } from './config.js';
 
 /**
  * Search emails across priority mailboxes (limited scope for performance)
  */
 export async function searchMails(searchTerm: string, limit = 20): Promise<EmailMessage[]> {
   const escapedSearch = escapeJXAString(searchTerm.toLowerCase());
+  const messagesPerSearch = config.search.messagesPerSearch;
+  const contentPreviewLength = config.search.contentPreviewLength;
 
   return runJXA<EmailMessage[]>(`
-    const Mail = Application('Mail');
-    const emails = [];
-    const searchLower = "${escapedSearch}";
-    let collected = 0;
-    const maxEmails = ${limit};
+    var Mail = Application('Mail');
+    var emails = [];
+    var searchLower = "${escapedSearch}";
+    var collected = 0;
+    var maxEmails = ${limit};
+    var messagesPerSearch = ${messagesPerSearch};
+    var contentPreviewLength = ${contentPreviewLength};
 
     // Only search in priority mailboxes from first 3 accounts
-    const priorityNames = ['INBOX', 'Sent Messages', 'Sent'];
-    const accounts = Mail.accounts();
-    const maxAccounts = Math.min(3, accounts.length);
+    var priorityNames = ['INBOX', 'Sent Messages', 'Sent'];
+    var accounts = Mail.accounts();
+    var maxAccounts = Math.min(3, accounts.length);
 
-    for (let a = 0; a < maxAccounts && collected < maxEmails; a++) {
+    for (var a = 0; a < maxAccounts && collected < maxEmails; a++) {
       try {
-        const mailboxes = accounts[a].mailboxes();
+        var mailboxes = accounts[a].mailboxes();
 
         // Find priority mailboxes in this account
-        for (let i = 0; i < mailboxes.length && collected < maxEmails; i++) {
-          const mailbox = mailboxes[i];
-          const mailboxName = mailbox.name().toUpperCase();
+        for (var i = 0; i < mailboxes.length && collected < maxEmails; i++) {
+          var mailbox = mailboxes[i];
+          var mailboxName = mailbox.name().toUpperCase();
 
           // Only search priority mailboxes
-          if (!priorityNames.some(p => mailboxName.includes(p.toUpperCase()))) {
+          var isPriority = false;
+          for (var p = 0; p < priorityNames.length; p++) {
+            if (mailboxName.includes(priorityNames[p].toUpperCase())) {
+              isPriority = true;
+              break;
+            }
+          }
+          if (!isPriority) {
             continue;
           }
 
           try {
-            const messages = mailbox.messages();
-            const messageCount = messages.length;
+            var messages = mailbox.messages();
+            var messageCount = messages.length;
 
-            // Only check last 50 messages per mailbox
-            const checkCount = Math.min(50, messageCount);
-            const startIdx = Math.max(0, messageCount - checkCount);
+            // Check configured number of messages per mailbox
+            var checkCount = Math.min(messagesPerSearch, messageCount);
+            var startIdx = Math.max(0, messageCount - checkCount);
 
-            for (let j = messageCount - 1; j >= startIdx && collected < maxEmails; j--) {
+            for (var j = messageCount - 1; j >= startIdx && collected < maxEmails; j--) {
               try {
-                const msg = messages[j];
+                var msg = messages[j];
 
-                // Quick check on subject and sender only
-                const subject = (msg.subject() || '').toLowerCase();
-                const sender = (msg.sender() || '').toString().toLowerCase();
+                // Check subject and sender only (skip content for performance)
+                var subject = (msg.subject() || '').toLowerCase();
+                var sender = (msg.sender() || '').toString().toLowerCase();
 
                 if (subject.includes(searchLower) || sender.includes(searchLower)) {
-                  const recipients = [];
+                  var recipients = [];
                   try {
-                    const toRecipients = msg.toRecipients();
-                    for (let k = 0; k < Math.min(3, toRecipients.length); k++) {
+                    var toRecipients = msg.toRecipients();
+                    for (var k = 0; k < Math.min(3, toRecipients.length); k++) {
                       recipients.push(toRecipients[k].address());
                     }
                   } catch (e) {}
@@ -92,9 +104,9 @@ export async function searchMails(searchTerm: string, limit = 20): Promise<Email
     }
 
     // Sort by date (newest first)
-    emails.sort((a, b) =>
-      new Date(b.dateReceived).getTime() - new Date(a.dateReceived).getTime()
-    );
+    emails.sort(function(a, b) {
+      return new Date(b.dateReceived).getTime() - new Date(a.dateReceived).getTime();
+    });
 
     return emails;
   `);
@@ -107,21 +119,21 @@ export async function searchInbox(searchTerm: string, limit = 20): Promise<Email
   const escapedSearch = escapeJXAString(searchTerm.toLowerCase());
 
   return runJXA<EmailMessage[]>(`
-    const Mail = Application('Mail');
-    const emails = [];
-    const searchLower = "${escapedSearch}";
-    let collected = 0;
-    const maxEmails = ${limit};
+    var Mail = Application('Mail');
+    var emails = [];
+    var searchLower = "${escapedSearch}";
+    var collected = 0;
+    var maxEmails = ${limit};
 
     // Get INBOX from each account
-    const accounts = Mail.accounts();
-    const inboxes = [];
+    var accounts = Mail.accounts();
+    var inboxes = [];
 
-    for (let i = 0; i < accounts.length; i++) {
+    for (var i = 0; i < accounts.length; i++) {
       try {
-        const mailboxes = accounts[i].mailboxes();
-        for (let j = 0; j < mailboxes.length; j++) {
-          const name = mailboxes[j].name().toUpperCase();
+        var mailboxes = accounts[i].mailboxes();
+        for (var j = 0; j < mailboxes.length; j++) {
+          var name = mailboxes[j].name().toUpperCase();
           if (name === 'INBOX' || name.includes('INBOX')) {
             inboxes.push(mailboxes[j]);
             break; // One inbox per account
@@ -131,30 +143,30 @@ export async function searchInbox(searchTerm: string, limit = 20): Promise<Email
     }
 
     // Search through inboxes
-    for (let i = 0; i < inboxes.length && collected < maxEmails; i++) {
-      const inbox = inboxes[i];
+    for (var i = 0; i < inboxes.length && collected < maxEmails; i++) {
+      var inbox = inboxes[i];
 
       try {
-        const messages = inbox.messages();
-        const messageCount = messages.length;
+        var messages = inbox.messages();
+        var messageCount = messages.length;
 
         // Check last 100 messages in inbox
-        const checkCount = Math.min(100, messageCount);
-        const startIdx = Math.max(0, messageCount - checkCount);
+        var checkCount = Math.min(100, messageCount);
+        var startIdx = Math.max(0, messageCount - checkCount);
 
-        for (let j = messageCount - 1; j >= startIdx && collected < maxEmails; j--) {
+        for (var j = messageCount - 1; j >= startIdx && collected < maxEmails; j--) {
           try {
-            const msg = messages[j];
+            var msg = messages[j];
 
             // Check subject and sender
-            const subject = (msg.subject() || '').toLowerCase();
-            const sender = (msg.sender() || '').toString().toLowerCase();
+            var subject = (msg.subject() || '').toLowerCase();
+            var sender = (msg.sender() || '').toString().toLowerCase();
 
             if (subject.includes(searchLower) || sender.includes(searchLower)) {
-              const recipients = [];
+              var recipients = [];
               try {
-                const toRecipients = msg.toRecipients();
-                for (let k = 0; k < Math.min(5, toRecipients.length); k++) {
+                var toRecipients = msg.toRecipients();
+                for (var k = 0; k < Math.min(5, toRecipients.length); k++) {
                   recipients.push(toRecipients[k].address());
                 }
               } catch (e) {}
@@ -196,26 +208,30 @@ export async function searchInMailbox(
   const escapedSearch = escapeJXAString(searchTerm.toLowerCase());
   const escapedMailbox = escapeJXAString(mailboxName);
   const escapedAccount = accountName ? escapeJXAString(accountName) : null;
+  const messagesPerSearch = config.search.messagesPerSearch;
+  const contentPreviewLength = config.search.contentPreviewLength;
 
   return runJXA<EmailMessage[]>(`
-    const Mail = Application('Mail');
-    const emails = [];
-    const searchLower = "${escapedSearch}";
-    const targetMailboxName = "${escapedMailbox}";
-    const targetAccountName = ${escapedAccount ? `"${escapedAccount}"` : 'null'};
-    let collected = 0;
-    const maxEmails = ${limit};
+    var Mail = Application('Mail');
+    var emails = [];
+    var searchLower = "${escapedSearch}";
+    var targetMailboxName = "${escapedMailbox}";
+    var targetAccountName = ${escapedAccount ? `"${escapedAccount}"` : 'null'};
+    var collected = 0;
+    var maxEmails = ${limit};
+    var messagesPerSearch = ${messagesPerSearch};
+    var contentPreviewLength = ${contentPreviewLength};
 
     // Find the mailbox
-    let targetMailbox = null;
-    const accounts = Mail.accounts();
+    var targetMailbox = null;
+    var accounts = Mail.accounts();
 
     if (targetAccountName) {
       // Search in specific account
-      for (let i = 0; i < accounts.length; i++) {
+      for (var i = 0; i < accounts.length; i++) {
         if (accounts[i].name() === targetAccountName) {
-          const mailboxes = accounts[i].mailboxes();
-          for (let j = 0; j < mailboxes.length; j++) {
+          var mailboxes = accounts[i].mailboxes();
+          for (var j = 0; j < mailboxes.length; j++) {
             if (mailboxes[j].name() === targetMailboxName) {
               targetMailbox = mailboxes[j];
               break;
@@ -226,9 +242,9 @@ export async function searchInMailbox(
       }
     } else {
       // Search across all accounts
-      for (let i = 0; i < accounts.length && !targetMailbox; i++) {
-        const mailboxes = accounts[i].mailboxes();
-        for (let j = 0; j < mailboxes.length; j++) {
+      for (var i = 0; i < accounts.length && !targetMailbox; i++) {
+        var mailboxes = accounts[i].mailboxes();
+        for (var j = 0; j < mailboxes.length; j++) {
           if (mailboxes[j].name() === targetMailboxName) {
             targetMailbox = mailboxes[j];
             break;
@@ -243,27 +259,27 @@ export async function searchInMailbox(
 
     // Search in the specific mailbox
     try {
-      const messages = targetMailbox.messages();
-      const messageCount = messages.length;
+      var messages = targetMailbox.messages();
+      var messageCount = messages.length;
 
-      // Check last 50 messages (reduced for performance)
-      const checkCount = Math.min(50, messageCount);
-      const startIdx = Math.max(0, messageCount - checkCount);
+      // Check configured number of messages
+      var checkCount = Math.min(messagesPerSearch, messageCount);
+      var startIdx = Math.max(0, messageCount - checkCount);
 
-      for (let j = messageCount - 1; j >= startIdx && collected < maxEmails; j--) {
+      for (var j = messageCount - 1; j >= startIdx && collected < maxEmails; j--) {
         try {
-          const msg = messages[j];
+          var msg = messages[j];
 
           // Check subject and sender only (skip content for performance)
-          const subject = (msg.subject() || '').toLowerCase();
-          const sender = (msg.sender() || '').toString().toLowerCase();
+          var subject = (msg.subject() || '').toLowerCase();
+          var sender = (msg.sender() || '').toString().toLowerCase();
 
           if (subject.includes(searchLower) || sender.includes(searchLower)) {
 
-            const recipients = [];
+            var recipients = [];
             try {
-              const toRecipients = msg.toRecipients();
-              for (let k = 0; k < Math.min(5, toRecipients.length); k++) {
+              var toRecipients = msg.toRecipients();
+              for (var k = 0; k < Math.min(5, toRecipients.length); k++) {
                 recipients.push(toRecipients[k].address());
               }
             } catch (e) {}
