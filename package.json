@@ -1,0 +1,31 @@
+{
+  "name": "mcp-apple",
+  "version": "1.0.0",
+  "description": "Clean Apple Mail MCP server using JXA - no string parsing!",
+  "type": "module",
+  "main": "dist/index.js",
+  "module": "index.ts",
+  "scripts": {
+    "dev": "bun run index.ts",
+    "build": "bun build index.ts --outfile=dist/index.js --target=node --minify",
+    "test": "bun run test/test-mail.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.22.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  },
+  "keywords": [
+    "mcp",
+    "apple",
+    "mail",
+    "jxa",
+    "automation"
+  ],
+  "author": "Sirui Lu",
+  "license": "MIT"
+}
