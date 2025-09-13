@@ -6,18 +6,21 @@
   "main": "dist/index.js",
   "module": "index.ts",
   "scripts": {
-    "dev": "bun run index.ts",
-    "build": "bun build index.ts --outfile=dist/index.js --target=node --minify",
-    "test": "bun run test/test-mail.ts"
+    "dev": "node --loader tsx index.ts",
+    "build": "tsc && esbuild index.ts --bundle --platform=node --target=node16 --format=esm --outfile=dist/index.js --minify --external:@modelcontextprotocol/sdk --external:zod",
+    "test": "node --loader tsx test/test-mail.ts",
+    "pack": "mcpb pack"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
     "zod": "^3.22.0"
   },
   "devDependencies": {
-    "@types/bun": "latest",
     "@types/node": "^20.0.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.0.0",
+    "tsx": "^4.0.0",
+    "esbuild": "^0.19.0",
+    "@anthropic-ai/mcpb": "^1.1.0"
   },
   "keywords": [
     "mcp",

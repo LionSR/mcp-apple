@@ -1,0 +1,152 @@
+{
+  "dxt_version": "0.1",
+  "name": "apple-mail",
+  "display_name": "Apple Mail MCP",
+  "version": "1.0.0",
+  "description": "Control Apple Mail through JavaScript for Automation (JXA)",
+  "long_description": "A comprehensive MCP server that provides full control over Apple Mail on macOS. Features include reading emails, searching messages, managing mailboxes, sending emails from specific accounts, and organizing your inbox. All operations are performed locally using macOS's built-in JavaScript for Automation (JXA) technology, ensuring privacy and security.",
+  "author": {
+    "name": "Sirui Lu",
+    "email": "sirui.lu.phys@gmail.com",
+    "url": "https://github.com/LionSR"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/LionSR/mcp-apple"
+  },
+  "homepage": "https://github.com/LionSR/mcp-apple",
+  "documentation": "https://github.com/LionSR/mcp-apple/blob/main/README.md",
+  "support": "https://github.com/LionSR/mcp-apple/issues",
+  "icon": "icon.png",
+  "server": {
+    "type": "node",
+    "entry_point": "dist/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/dist/index.js"],
+      "env": {
+        "MAIL_ENABLED_ACCOUNTS": "${user_config.enabled_accounts}",
+        "MAIL_DISABLED_ACCOUNTS": "${user_config.disabled_accounts}",
+        "MAIL_SEARCH_DEFAULT_LIMIT": "${user_config.search_limit}",
+        "MAIL_PRIORITY_MAILBOXES": "${user_config.priority_mailboxes}",
+        "MAIL_JXA_TIMEOUT": "${user_config.jxa_timeout}",
+        "MAIL_MAX_MAILBOXES_CHECK": "${user_config.max_mailboxes_check}",
+        "MAIL_MESSAGES_PER_MAILBOX": "${user_config.messages_per_mailbox}"
+      }
+    }
+  },
+  "tools": [
+    {
+      "name": "mail_get_accounts",
+      "description": "Get all email accounts configured in Apple Mail"
+    },
+    {
+      "name": "mail_get_mailboxes",
+      "description": "Get mailbox hierarchy for a specific account"
+    },
+    {
+      "name": "mail_get_unread",
+      "description": "Get unread emails across all mailboxes"
+    },
+    {
+      "name": "mail_search",
+      "description": "Search emails containing specific text"
+    },
+    {
+      "name": "mail_search_inbox",
+      "description": "Search emails in inbox folders only"
+    },
+    {
+      "name": "mail_search_mailbox",
+      "description": "Search emails in a specific mailbox"
+    },
+    {
+      "name": "mail_get_latest",
+      "description": "Get latest emails from a specific account"
+    },
+    {
+      "name": "mail_send",
+      "description": "Send an email from a specific account"
+    },
+    {
+      "name": "mail_mark_read",
+      "description": "Mark emails as read by their IDs"
+    },
+    {
+      "name": "mail_delete",
+      "description": "Delete emails by their IDs"
+    },
+    {
+      "name": "mail_move",
+      "description": "Move emails to a different mailbox"
+    }
+  ],
+  "keywords": ["email", "mail", "apple-mail", "macos", "jxa", "automation", "productivity"],
+  "license": "MIT",
+  "compatibility": {
+    "claude_desktop": ">=0.10.0",
+    "platforms": ["darwin"],
+    "runtimes": {
+      "node": ">=16.0.0"
+    }
+  },
+  "user_config": {
+    "enabled_accounts": {
+      "type": "string",
+      "title": "Enabled Accounts",
+      "description": "Comma-separated list of account names to enable (leave empty for all)",
+      "required": false,
+      "default": ""
+    },
+    "disabled_accounts": {
+      "type": "string",
+      "title": "Disabled Accounts",
+      "description": "Comma-separated list of account names to disable",
+      "required": false,
+      "default": ""
+    },
+    "search_limit": {
+      "type": "number",
+      "title": "Default Search Limit",
+      "description": "Default number of results for search operations",
+      "required": false,
+      "default": 20,
+      "min": 1,
+      "max": 100
+    },
+    "priority_mailboxes": {
+      "type": "string",
+      "title": "Priority Mailboxes",
+      "description": "Comma-separated list of mailbox names to prioritize in searches",
+      "required": false,
+      "default": "INBOX,Sent Messages,Sent,Drafts"
+    },
+    "jxa_timeout": {
+      "type": "number",
+      "title": "JXA Timeout (ms)",
+      "description": "Timeout for JXA operations in milliseconds",
+      "required": false,
+      "default": 30000,
+      "min": 5000,
+      "max": 120000
+    },
+    "max_mailboxes_check": {
+      "type": "number",
+      "title": "Max Mailboxes to Check",
+      "description": "Maximum number of mailboxes to check in operations",
+      "required": false,
+      "default": 10,
+      "min": 1,
+      "max": 50
+    },
+    "messages_per_mailbox": {
+      "type": "number",
+      "title": "Messages per Mailbox",
+      "description": "Number of messages to check per mailbox",
+      "required": false,
+      "default": 50,
+      "min": 10,
+      "max": 200
+    }
+  }
+}

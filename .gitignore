@@ -2,3 +2,16 @@ node_modules/
 dist/
 *.log
 .DS_Store
+
+# Bun files (no longer used)
+bun.lock
+
+# Built bundles
+*.mcpb
+releases/
+
+# Local Claude settings
+.claude/
+
+# Old config files
+mcp.json

@@ -13,7 +13,7 @@
     "outDir": "./dist",
     "rootDir": "./",
     "lib": ["ESNext"],
-    "types": ["bun-types", "node"]
+    "types": ["node"]
   },
   "include": ["**/*.ts"],
   "exclude": ["node_modules", "dist"]

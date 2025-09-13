@@ -1,6 +1,6 @@
-# MCP Apple Mail
+# MCP Apple Mail Desktop Extension
 
-Clean Apple Mail integration for Model Context Protocol (MCP) using JXA (JavaScript for Automation).
+A desktop extension for Claude that provides seamless Apple Mail integration through the Model Context Protocol (MCP) using JXA (JavaScript for Automation).
 
 ## Features
 
@@ -12,31 +12,68 @@ Clean Apple Mail integration for Model Context Protocol (MCP) using JXA (JavaScr
 
 ## Installation
 
+### As a Desktop Extension (Recommended)
+
+1. Download the `apple-mail.mcpb` extension package
+2. Double-click to install in Claude Desktop
+3. Configure your preferences in the Claude Desktop settings
+
+### Manual Installation
+
+For development or manual setup:
+
 ```bash
+# Clone the repository
+git clone https://github.com/LionSR/mcp-apple-mail
+cd mcp-apple-mail
+
 # Install dependencies
-bun install
+npm install
 
-# Build
-bun run build
+# Build the extension
+npm run build
 
-# Test
-bun run test
+# Create the MCPB package
+npm run pack
 ```
 
-## Usage with Claude Desktop
-
-Add to your Claude Desktop configuration (`~/Library/Application Support/Claude/claude_desktop_config.json`):
+Then add to your Claude Desktop configuration (`~/Library/Application Support/Claude/claude_desktop_config.json`):
 
 ```json
 {
   "mcpServers": {
     "apple-mail": {
       "command": "node",
-      "args": ["/path/to/mcp-apple/dist/index.js"]
+      "args": ["/path/to/mcp-apple/dist/index.js"],
+      "env": {
+        "MAIL_ENABLED_ACCOUNTS": "${user_config.enabled_accounts}",
+        "MAIL_DISABLED_ACCOUNTS": "${user_config.disabled_accounts}",
+        "MAIL_SEARCH_DEFAULT_LIMIT": "${user_config.search_limit}",
+        "MAIL_PRIORITY_MAILBOXES": "${user_config.priority_mailboxes}",
+        "MAIL_JXA_TIMEOUT": "${user_config.jxa_timeout}",
+        "MAIL_MAX_MAILBOXES_CHECK": "${user_config.max_mailboxes_check}",
+        "MAIL_MESSAGES_PER_MAILBOX": "${user_config.messages_per_mailbox}"
+      }
     }
   }
 }
 ```
+
+## Configuration
+
+When installed as a desktop extension, you can configure the following settings through the Claude Desktop UI:
+
+| Setting | Description | Default |
+|---------|-------------|---------|
+| **Enabled Accounts** | Comma-separated list of account names to enable | All accounts |
+| **Disabled Accounts** | Comma-separated list of account names to disable | None |
+| **Search Limit** | Default number of results for search operations | 20 |
+| **Priority Mailboxes** | Comma-separated list of priority mailbox names | INBOX, Sent Messages, Sent, Drafts |
+| **JXA Timeout** | Timeout for JXA operations (ms) | 30000 |
+| **Max Mailboxes** | Maximum mailboxes to check in operations | 10 |
+| **Messages per Mailbox** | Messages to check per mailbox | 50 |
+
+**Note:** If both `MAIL_ENABLED_ACCOUNTS` and `MAIL_DISABLED_ACCOUNTS` are specified, only accounts in the enabled list will be active.
 
 ## Available Tools
 
@@ -97,19 +134,22 @@ This implementation uses JavaScript for Automation (JXA) instead of traditional 
 
 ```bash
 # Run in development mode
-bun run dev
+npm run dev
 
 # Run tests
-bun run test
+npm run test
 
 # Build for production
-bun run build
+npm run build
+
+# Create MCPB package
+npm run pack
 ```
 
 ## Requirements
 
 - macOS (for Apple Mail access)
-- Node.js or Bun
+- Node.js 16+ and npm
 - Apple Mail configured with at least one account
 
 ## License

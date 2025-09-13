@@ -12,8 +12,20 @@ import {
   CallToolRequestSchema,
   Tool,
 } from "@modelcontextprotocol/sdk/types.js";
-import { z } from "zod";
 import mailJXA from "./lib/mail.js";
+import {
+  GetMailboxesSchema,
+  GetUnreadSchema,
+  GetLatestSchema,
+  SearchMailsSchema,
+  SearchInboxSchema,
+  SearchInMailboxSchema,
+  SendMailSchema,
+  MarkAsReadSchema,
+  DeleteEmailsSchema,
+  MoveEmailsSchema
+} from "./lib/schemas.js";
+import { config, filterAccounts } from "./lib/config.js";
 
 // Tool definitions
 const MAIL_TOOLS: Tool[] = [
@@ -55,7 +67,7 @@ const MAIL_TOOLS: Tool[] = [
   },
   {
     name: "mail_search",
-    description: "Search for emails containing specific text",
+    description: "Quick search in priority mailboxes (Inbox, Sent) - limited scope for performance",
     inputSchema: {
       type: "object",
       properties: {
@@ -70,6 +82,52 @@ const MAIL_TOOLS: Tool[] = [
         },
       },
       required: ["searchTerm"],
+    },
+  },
+  {
+    name: "mail_search_inbox",
+    description: "Search emails in all inbox folders (fast, focused search)",
+    inputSchema: {
+      type: "object",
+      properties: {
+        searchTerm: {
+          type: "string",
+          description: "Text to search for in inbox emails",
+        },
+        limit: {
+          type: "number",
+          description: "Maximum number of results",
+          default: 20,
+        },
+      },
+      required: ["searchTerm"],
+    },
+  },
+  {
+    name: "mail_search_mailbox",
+    description: "Search emails in a specific mailbox (includes content search)",
+    inputSchema: {
+      type: "object",
+      properties: {
+        mailboxName: {
+          type: "string",
+          description: "Name of the mailbox to search in",
+        },
+        searchTerm: {
+          type: "string",
+          description: "Text to search for",
+        },
+        accountName: {
+          type: "string",
+          description: "Account name (optional - searches all accounts if not specified)",
+        },
+        limit: {
+          type: "number",
+          description: "Maximum number of results",
+          default: 20,
+        },
+      },
+      required: ["mailboxName", "searchTerm"],
     },
   },
   {
@@ -155,6 +213,29 @@ const MAIL_TOOLS: Tool[] = [
       required: ["messageIds"],
     },
   },
+  {
+    name: "mail_move",
+    description: "Move emails to a different mailbox",
+    inputSchema: {
+      type: "object",
+      properties: {
+        messageIds: {
+          type: "array",
+          items: { type: "string" },
+          description: "Array of message IDs to move",
+        },
+        targetMailbox: {
+          type: "string",
+          description: "Name of the target mailbox",
+        },
+        targetAccount: {
+          type: "string",
+          description: "Name of the target account (optional, searches all if not specified)",
+        },
+      },
+      required: ["messageIds", "targetMailbox"],
+    },
+  },
 ];
 
 // Create server
@@ -182,30 +263,39 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   try {
     switch (name) {
       case "mail_get_accounts": {
-        const accounts = await mailJXA.getAccounts();
+        const allAccounts = await mailJXA.getAccounts();
+        const enabledAccounts = filterAccounts(allAccounts, config);
+
+        // Add status to each account
+        const accountsWithStatus = allAccounts.map(acc => ({
+          ...acc,
+          configStatus: enabledAccounts.includes(acc) ? 'enabled' : 'disabled'
+        }));
+
         return {
           content: [
             {
               type: "text",
-              text: JSON.stringify(accounts, null, 2),
+              text: JSON.stringify(accountsWithStatus, null, 2),
             },
           ],
         };
       }
 
       case "mail_get_mailboxes": {
-        const { accountName } = args as { accountName: string };
+        const validated = GetMailboxesSchema.parse(args);
+        const { accountName } = validated;
         const hierarchy = await mailJXA.getMailboxHierarchy(accountName);
 
         // Format as tree for readability
         let output = `Mailbox Hierarchy for ${accountName}:\n`;
         output += `Total: ${hierarchy.total} mailboxes\n\n`;
 
-        hierarchy.roots.forEach(rootName => {
+        hierarchy.roots.forEach((rootName: string) => {
           const mailbox = hierarchy.tree[rootName];
           output += `📁 ${rootName} (${mailbox.messageCount} messages)\n`;
 
-          mailbox.children.slice(0, 5).forEach(childName => {
+          mailbox.children.slice(0, 5).forEach((childName: string) => {
             const child = hierarchy.tree[childName];
             if (child) {
               output += `  └─ ${childName} (${child.messageCount} msgs)\n`;
@@ -223,7 +313,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "mail_get_unread": {
-        const { limit = 20 } = args as { limit?: number };
+        const validated = GetUnreadSchema.parse(args);
+        const { limit = 20 } = validated;
         const emails = await mailJXA.getUnreadMails(limit);
 
         if (emails.length === 0) {
@@ -232,7 +323,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           };
         }
 
-        const output = emails.map(email =>
+        const output = emails.map((email: any) =>
           `📧 ${email.subject}\n` +
           `   From: ${email.sender}\n` +
           `   Date: ${new Date(email.dateSent).toLocaleString()}\n` +
@@ -245,16 +336,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "mail_search": {
-        const { searchTerm, limit = 20 } = args as { searchTerm: string; limit?: number };
+        const validated = SearchMailsSchema.parse(args);
+        const { searchTerm, limit = 20 } = validated;
         const emails = await mailJXA.searchMails(searchTerm, limit);
 
         if (emails.length === 0) {
           return {
-            content: [{ type: "text", text: `No emails found containing "${searchTerm}"` }],
+            content: [{ type: "text", text: `No emails found containing "${searchTerm}" in priority mailboxes` }],
           };
         }
 
-        const output = emails.map(email =>
+        const output = emails.map((email: any) =>
           `📨 ${email.subject}\n` +
           `   From: ${email.sender}\n` +
           `   Date: ${new Date(email.dateReceived).toLocaleString()}\n` +
@@ -266,11 +358,60 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
       }
 
+      case "mail_search_inbox": {
+        const validated = SearchInboxSchema.parse(args);
+        const { searchTerm, limit = 20 } = validated;
+        const emails = await mailJXA.searchInbox(searchTerm, limit);
+
+        if (emails.length === 0) {
+          return {
+            content: [{ type: "text", text: `No emails found containing "${searchTerm}" in inbox` }],
+          };
+        }
+
+        const output = emails.map((email: any) =>
+          `📧 ${email.subject}\n` +
+          `   From: ${email.sender}\n` +
+          `   Date: ${new Date(email.dateReceived).toLocaleString()}\n` +
+          `   Read: ${email.isRead ? '✓' : '✗'}\n`
+        ).join('\n');
+
+        return {
+          content: [{ type: "text", text: `Found ${emails.length} emails in inbox:\n\n${output}` }],
+        };
+      }
+
+      case "mail_search_mailbox": {
+        const validated = SearchInMailboxSchema.parse(args);
+        const { mailboxName, searchTerm, accountName, limit = 20 } = validated;
+        const emails = await mailJXA.searchInMailbox(mailboxName, searchTerm, accountName, limit);
+
+        if (emails.length === 0) {
+          const location = accountName ? `${mailboxName} in ${accountName}` : mailboxName;
+          return {
+            content: [{ type: "text", text: `No emails found containing "${searchTerm}" in ${location}` }],
+          };
+        }
+
+        const output = emails.map((email: any) =>
+          `📨 ${email.subject}\n` +
+          `   From: ${email.sender}\n` +
+          `   Date: ${new Date(email.dateReceived).toLocaleString()}\n` +
+          `   Account: ${email.accountName}\n`
+        ).join('\n');
+
+        const location = accountName ? `${mailboxName} (${accountName})` : mailboxName;
+        return {
+          content: [{ type: "text", text: `Found ${emails.length} emails in ${location}:\n\n${output}` }],
+        };
+      }
+
       case "mail_get_latest": {
-        const { accountName, limit = 10 } = args as { accountName: string; limit?: number };
+        const validated = GetLatestSchema.parse(args);
+        const { accountName, limit = 10 } = validated;
         const emails = await mailJXA.getLatestMails(accountName, limit);
 
-        const output = emails.map((email, i) =>
+        const output = emails.map((email: any, i: number) =>
           `${i + 1}. ${email.subject}\n` +
           `   From: ${email.sender}\n` +
           `   Date: ${new Date(email.dateReceived).toLocaleString()}\n`
@@ -282,23 +423,25 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "mail_send": {
-        const { to, subject, body, from, cc, bcc } = args as {
-          to: string;
-          subject: string;
-          body: string;
-          from?: string;
-          cc?: string;
-          bcc?: string;
-        };
+        const validated = SendMailSchema.parse(args);
+        const { to, subject, body, from, cc, bcc } = validated;
 
-        const result = await mailJXA.sendMail(to, subject, body, from, cc, bcc);
+        const result = await mailJXA.sendMail({
+          to,
+          subject,
+          body,
+          accountName: from,
+          cc,
+          bcc
+        });
         return {
           content: [{ type: "text", text: result }],
         };
       }
 
       case "mail_mark_read": {
-        const { messageIds } = args as { messageIds: string[] };
+        const validated = MarkAsReadSchema.parse(args);
+        const { messageIds } = validated;
         const count = await mailJXA.markAsRead(messageIds);
         return {
           content: [{ type: "text", text: `Marked ${count} emails as read.` }],
@@ -306,10 +449,32 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       case "mail_delete": {
-        const { messageIds } = args as { messageIds: string[] };
+        const validated = DeleteEmailsSchema.parse(args);
+        const { messageIds } = validated;
         const count = await mailJXA.deleteEmails(messageIds);
         return {
           content: [{ type: "text", text: `Deleted ${count} emails.` }],
+        };
+      }
+
+      case "mail_move": {
+        const validated = MoveEmailsSchema.parse(args);
+        const { messageIds, targetMailbox, targetAccount } = validated;
+        const result = await mailJXA.moveEmails(messageIds, targetMailbox, targetAccount);
+
+        let message = `Moved ${result.moved} email${result.moved !== 1 ? 's' : ''}`;
+        if (targetAccount) {
+          message += ` to ${targetMailbox} in ${targetAccount}`;
+        } else {
+          message += ` to ${targetMailbox}`;
+        }
+
+        if (result.errors.length > 0) {
+          message += `\nErrors:\n${result.errors.join('\n')}`;
+        }
+
+        return {
+          content: [{ type: "text", text: message }],
         };
       }
 
