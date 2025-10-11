@@ -58,7 +58,8 @@ export const DeleteEmailsSchema = z.object({
 export const MoveEmailsSchema = z.object({
   messageIds: z.array(z.string()).min(1, 'At least one message ID is required'),
   targetMailbox: z.string().min(1, 'Target mailbox is required'),
-  targetAccount: z.string().optional()
+  targetAccount: z.string().optional(),
+  searchInboxOnly: z.boolean().default(false).optional()
 });
 
 // Export type inference helpers

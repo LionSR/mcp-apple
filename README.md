@@ -101,6 +101,56 @@ Mark emails as read by ID.
 ### `mail_delete`
 Delete emails by ID.
 
+### `mail_move`
+Move emails to a different mailbox by Message-ID.
+
+**Parameters:**
+- `messageIds` (required): Array of Message-IDs (GUIDs) to move
+- `targetMailbox` (required): Name of destination mailbox
+- `targetAccount` (optional): Name of destination account
+- `searchInboxOnly` (optional, default: false): When true, only searches INBOX mailboxes for performance
+
+**Performance Note:** When `searchInboxOnly=false` (default), this operation searches through ALL mailboxes in ALL accounts to find the source emails. If you have accounts with many mailboxes (e.g., 240+ folders), this can cause significant delays (10-30 seconds or more) even when moving emails from accounts with few mailboxes. Use `searchInboxOnly=true` for faster performance when you know emails are in INBOX folders.
+
+## Performance Considerations
+
+### Mail Operations Performance
+
+**Problem:** The `mail_move`, `mail_mark_read`, and `mail_delete` operations search through ALL mailboxes in ALL configured accounts to find emails by Message-ID. This means:
+
+- If you have one account with 240+ mailboxes (e.g., iCloud with extensive folder structure)
+- Even operations on emails in other accounts (e.g., moving an email in your "Work" account with only 10 folders)
+- Will still search through all 240+ mailboxes in the large account
+- This causes significant performance degradation and Mail.app may become unresponsive for 10-30+ seconds
+
+**Impact:**
+- Operations that should take 1-2 seconds can take 10-30+ seconds
+- Mail.app becomes unresponsive during the search (this is normal - JXA blocks user access while running)
+- The performance penalty applies to ALL accounts, not just the account with many mailboxes
+
+**Workarounds:**
+1. **For INBOX operations:** Use `searchInboxOnly: true` parameter with `mail_move` to search only INBOX folders (typically 2-5 mailboxes instead of 240+)
+2. **Future enhancement:** Consider adding a `sourceAccount` parameter to limit search scope to specific accounts
+
+**Example:**
+```javascript
+// Fast: Only searches INBOX folders across all accounts
+mail_move({
+  messageIds: ["<message-id@example.com>"],
+  targetMailbox: "Archive",
+  targetAccount: "Work",
+  searchInboxOnly: true  // Fast!
+})
+
+// Slow: Searches all 240+ mailboxes if you have large accounts
+mail_move({
+  messageIds: ["<message-id@example.com>"],
+  targetMailbox: "Archive",
+  targetAccount: "Work",
+  searchInboxOnly: false  // Default, but slow!
+})
+```
+
 ## Technical Details
 
 ### JXA Implementation

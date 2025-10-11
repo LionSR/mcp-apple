@@ -85,31 +85,36 @@ export async function markAsRead(messageIds: string[]): Promise<number> {
     let markedCount = 0;
     const targetIds = ${JSON.stringify(messageIds)};
 
-    const allMailboxes = Mail.mailboxes();
+    const accounts = Mail.accounts();
 
-    for (let i = 0; i < allMailboxes.length; i++) {
-      const mailbox = allMailboxes[i];
+    for (let a = 0; a < accounts.length; a++) {
+      const account = accounts[a];
+      const mailboxes = account.mailboxes();
 
-      try {
-        const messages = mailbox.messages();
+      for (let i = 0; i < mailboxes.length; i++) {
+        const mailbox = mailboxes[i];
 
-        for (let j = 0; j < messages.length; j++) {
-          const msg = messages[j];
+        try {
+          const messages = mailbox.messages();
 
-          if (targetIds.includes(msg.id())) {
-            msg.readStatus = true;
-            markedCount++;
+          for (let j = 0; j < messages.length; j++) {
+            const msg = messages[j];
 
-            // Remove from list once found
-            const idx = targetIds.indexOf(msg.id());
-            targetIds.splice(idx, 1);
+            if (targetIds.includes(msg.messageId())) {
+              msg.readStatus = true;
+              markedCount++;
 
-            if (targetIds.length === 0) {
-              return markedCount;
+              // Remove from list once found
+              const idx = targetIds.indexOf(msg.messageId());
+              targetIds.splice(idx, 1);
+
+              if (targetIds.length === 0) {
+                return markedCount;
+              }
             }
           }
-        }
-      } catch (e) {}
+        } catch (e) {}
+      }
     }
 
     return markedCount;
@@ -125,30 +130,35 @@ export async function deleteEmails(messageIds: string[]): Promise<number> {
     let deletedCount = 0;
     const targetIds = ${JSON.stringify(messageIds)};
 
-    const allMailboxes = Mail.mailboxes();
+    const accounts = Mail.accounts();
 
-    for (let i = 0; i < allMailboxes.length; i++) {
-      const mailbox = allMailboxes[i];
+    for (let a = 0; a < accounts.length; a++) {
+      const account = accounts[a];
+      const mailboxes = account.mailboxes();
 
-      try {
-        const messages = mailbox.messages();
+      for (let i = 0; i < mailboxes.length; i++) {
+        const mailbox = mailboxes[i];
 
-        for (let j = messages.length - 1; j >= 0; j--) {
-          const msg = messages[j];
+        try {
+          const messages = mailbox.messages();
 
-          if (targetIds.includes(msg.id())) {
-            msg.delete();
-            deletedCount++;
+          for (let j = messages.length - 1; j >= 0; j--) {
+            const msg = messages[j];
 
-            const idx = targetIds.indexOf(msg.id());
-            targetIds.splice(idx, 1);
+            if (targetIds.includes(msg.messageId())) {
+              msg.delete();
+              deletedCount++;
 
-            if (targetIds.length === 0) {
-              return deletedCount;
+              const idx = targetIds.indexOf(msg.messageId());
+              targetIds.splice(idx, 1);
+
+              if (targetIds.length === 0) {
+                return deletedCount;
+              }
             }
           }
-        }
-      } catch (e) {}
+        } catch (e) {}
+      }
     }
 
     return deletedCount;
@@ -157,11 +167,13 @@ export async function deleteEmails(messageIds: string[]): Promise<number> {
 
 /**
  * Move emails to a different mailbox
+ * @param searchInboxOnly - When true, only searches INBOX mailboxes for performance (default: false)
  */
 export async function moveEmails(
   messageIds: string[],
   targetMailbox: string,
-  targetAccount?: string
+  targetAccount?: string,
+  searchInboxOnly: boolean = false
 ): Promise<MoveEmailResult> {
   const escapedMailbox = escapeJXAString(targetMailbox);
   const escapedAccount = targetAccount ? escapeJXAString(targetAccount) : null;
@@ -173,6 +185,7 @@ export async function moveEmails(
     const targetIds = ${JSON.stringify(messageIds)};
     const destMailboxName = "${escapedMailbox}";
     const destAccountName = ${escapedAccount ? `"${escapedAccount}"` : 'null'};
+    const searchInboxOnly = ${searchInboxOnly};
 
     // Find the target mailbox
     let targetMbox = null;
@@ -211,36 +224,47 @@ export async function moveEmails(
       };
     }
 
-    // Find and move messages
-    const allMailboxes = Mail.mailboxes();
+    // Find and move messages - optionally search only INBOX mailboxes for performance
+    const searchAccounts = Mail.accounts();
+    const inboxNames = ['INBOX', 'Inbox'];
 
-    for (let i = 0; i < allMailboxes.length; i++) {
-      const mailbox = allMailboxes[i];
+    for (let a = 0; a < searchAccounts.length; a++) {
+      const searchAccount = searchAccounts[a];
+      const searchMailboxes = searchAccount.mailboxes();
 
-      try {
-        const messages = mailbox.messages();
+      for (let i = 0; i < searchMailboxes.length; i++) {
+        const mailbox = searchMailboxes[i];
 
-        for (let j = messages.length - 1; j >= 0; j--) {
-          const msg = messages[j];
+        // Skip non-INBOX mailboxes if searchInboxOnly is enabled
+        if (searchInboxOnly && !inboxNames.includes(mailbox.name())) {
+          continue;
+        }
 
-          if (targetIds.includes(msg.id())) {
-            try {
-              // Move the message
-              Mail.move(msg, {to: targetMbox});
-              movedCount++;
+        try {
+          const messages = mailbox.messages();
 
-              const idx = targetIds.indexOf(msg.id());
-              targetIds.splice(idx, 1);
+          for (let j = messages.length - 1; j >= 0; j--) {
+            const msg = messages[j];
 
-              if (targetIds.length === 0) {
-                return { moved: movedCount, errors: errors };
+            if (targetIds.includes(msg.messageId())) {
+              try {
+                // Move the message
+                Mail.move(msg, {to: targetMbox});
+                movedCount++;
+
+                const idx = targetIds.indexOf(msg.messageId());
+                targetIds.splice(idx, 1);
+
+                if (targetIds.length === 0) {
+                  return { moved: movedCount, errors: errors };
+                }
+              } catch (e) {
+                errors.push("Failed to move message " + msg.id() + ": " + e.toString());
               }
-            } catch (e) {
-              errors.push("Failed to move message " + msg.id() + ": " + e.toString());
             }
           }
-        }
-      } catch (e) {}
+        } catch (e) {}
+      }
     }
 
     if (targetIds.length > 0) {
