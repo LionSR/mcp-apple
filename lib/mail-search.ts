@@ -75,7 +75,8 @@ export async function searchMails(searchTerm: string, limit = 20): Promise<Email
                   } catch (e) {}
 
                   emails.push({
-                    id: msg.id(),
+                    id: String(msg.id()),
+                    messageId: msg.messageId(),
                     subject: msg.subject() || '[No Subject]',
                     sender: (msg.sender() || '[Unknown]').toString(),
                     recipients: recipients,
@@ -172,7 +173,8 @@ export async function searchInbox(searchTerm: string, limit = 20): Promise<Email
               } catch (e) {}
 
               emails.push({
-                id: msg.id(),
+                id: String(msg.id()),
+                messageId: msg.messageId(),
                 subject: msg.subject() || '[No Subject]',
                 sender: (msg.sender() || '[Unknown]').toString(),
                 recipients: recipients,
@@ -285,7 +287,8 @@ export async function searchInMailbox(
             } catch (e) {}
 
             emails.push({
-              id: msg.id(),
+              id: String(msg.id()),
+              messageId: msg.messageId(),
               subject: msg.subject() || '[No Subject]',
               sender: (msg.sender() || '[Unknown]').toString(),
               recipients: recipients,

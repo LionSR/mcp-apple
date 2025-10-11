@@ -232,6 +232,11 @@ const MAIL_TOOLS: Tool[] = [
           type: "string",
           description: "Name of the target account (optional, searches all if not specified)",
         },
+        searchInboxOnly: {
+          type: "boolean",
+          description: "When true, only searches INBOX mailboxes for performance (default: false)",
+          default: false,
+        },
       },
       required: ["messageIds", "targetMailbox"],
     },
@@ -397,7 +402,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           `📨 ${email.subject}\n` +
           `   From: ${email.sender}\n` +
           `   Date: ${new Date(email.dateReceived).toLocaleString()}\n` +
-          `   Account: ${email.accountName}\n`
+          `   Account: ${email.accountName}\n` +
+          `   Message-ID: ${email.messageId}\n` +
+          `   Numeric ID: ${email.id}\n`
         ).join('\n');
 
         const location = accountName ? `${mailboxName} (${accountName})` : mailboxName;
@@ -459,8 +466,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case "mail_move": {
         const validated = MoveEmailsSchema.parse(args);
-        const { messageIds, targetMailbox, targetAccount } = validated;
-        const result = await mailJXA.moveEmails(messageIds, targetMailbox, targetAccount);
+        const { messageIds, targetMailbox, targetAccount, searchInboxOnly = false } = validated;
+        const result = await mailJXA.moveEmails(messageIds, targetMailbox, targetAccount, searchInboxOnly);
 
         let message = `Moved ${result.moved} email${result.moved !== 1 ? 's' : ''}`;
         if (targetAccount) {
